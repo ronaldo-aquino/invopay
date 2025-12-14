@@ -1,0 +1,10 @@
+{
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enable": true,
+  "files.associations": {
+    "hardhat.config.ts": "typescript",
+    "scripts/**/*.ts": "typescript"
+  },
+  "typescript.preferences.includePackageJsonAutoImports": "on"
+}
+
