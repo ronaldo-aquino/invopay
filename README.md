@@ -49,13 +49,22 @@ npm install
 1. Copy the example environment file:
 
    ```bash
-   cp .env.local.example .env.local
+   cp env.example .env.local
    ```
 
 2. Fill in your environment variables in `.env.local`:
    - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase anon/public key
    - `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`: Your WalletConnect Cloud project ID (get it from [cloud.walletconnect.com](https://cloud.walletconnect.com))
+   - `NEXT_PUBLIC_INVOPAY_CONTRACT_ADDRESS`: Your deployed contract address (after deployment)
+
+3. Set up the environment file link for Next.js:
+
+   ```bash
+   npm run setup:env
+   ```
+
+   This creates a symlink so Next.js can read the `.env.local` file from the `frontend/` directory.
 
 ### 4. Get Arc Testnet Tokens
 

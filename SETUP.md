@@ -38,7 +38,15 @@ npm install
    - `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Your Supabase anon key
    - `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` - Your WalletConnect project ID
-   - `NEXT_PUBLIC_ARCLEDGER_CONTRACT_ADDRESS` - **Leave empty for now** (add after deployment)
+   - `NEXT_PUBLIC_INVOPAY_CONTRACT_ADDRESS` - **Leave empty for now** (add after deployment)
+
+3. Set up the environment file link for Next.js:
+
+   ```bash
+   npm run setup:env
+   ```
+
+   This creates a symlink so Next.js can read the `.env.local` file from the `frontend/` directory.
 
 ## Step 6: Get Testnet Tokens
 
@@ -91,6 +99,8 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+**Note**: If you see "Missing Supabase environment variables" warnings, make sure you ran `npm run setup:env` to create the symlink.
 
 ## Verification Checklist
 
