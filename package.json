@@ -12,6 +12,10 @@
     "format:check": "prettier --check .",
     "compile": "cd contracts && hardhat compile",
     "deploy": "cd contracts && hardhat run scripts/deploy.ts --network arcTestnet",
+    "deploy:subscription": "cd contracts && hardhat run scripts/deploy-subscription.ts --network arcTestnet",
+    "migrate:subscriptions": "bash scripts/migrate-subscriptions.sh",
+    "migrate:subscriptions:show": "node scripts/show-migration-sql.js",
+    "migrate:subscriptions:check": "node scripts/check-subscription-tables.js",
     "verify": "cd contracts && hardhat verify --network arcTestnet",
     "verify:contract": "cd contracts && hardhat run scripts/verify.ts --network arcTestnet",
     "initialize:tokens": "cd contracts && hardhat run scripts/initialize-tokens.ts --network arcTestnet"
@@ -51,6 +55,7 @@
     "hardhat": "^2.22.0",
     "postcss": "^8.4.49",
     "prettier": "^3.7.4",
+    "supabase": "^2.67.1",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.6.3"
