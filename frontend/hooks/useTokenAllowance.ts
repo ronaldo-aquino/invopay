@@ -1,18 +1,22 @@
 import { useEffect } from "react";
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { INVOPAY_CONTRACT_ADDRESS } from "@/lib/constants";
+import { INVOPAY_CONTRACT_ADDRESS, INVOPAY_SUBSCRIPTION_CONTRACT_ADDRESS } from "@/lib/constants";
 import { getAllowanceArgs, needsApproval, getApproveArgs } from "@backend/lib/services/token.service";
 
 export function useTokenAllowance(
   address: string | undefined,
   tokenAddress: string | undefined,
-  feeAmountInWei: bigint | undefined
+  feeAmountInWei: bigint | undefined,
+  contractAddress?: string | undefined
 ) {
+  const targetContractAddress = contractAddress || INVOPAY_CONTRACT_ADDRESS;
+  
   const allowanceArgs =
-    address && INVOPAY_CONTRACT_ADDRESS && tokenAddress
+    address && targetContractAddress && tokenAddress
       ? getAllowanceArgs({
           tokenAddress: tokenAddress as `0x${string}`,
           owner: address as `0x${string}`,
+          spender: targetContractAddress as `0x${string}`,
         })
       : undefined;
 
@@ -25,7 +29,7 @@ export function useTokenAllowance(
   } = useReadContract({
     ...allowanceArgs,
     query: {
-      enabled: !!address && !!INVOPAY_CONTRACT_ADDRESS && !!tokenAddress && !!feeAmountInWei,
+      enabled: !!address && !!targetContractAddress && !!tokenAddress && !!feeAmountInWei,
       retry: 2,
       staleTime: 0,
       gcTime: 0,
@@ -53,11 +57,12 @@ export function useTokenAllowance(
     : true;
 
   const handleApprove = () => {
-    if (!tokenAddress || !feeAmountInWei || !INVOPAY_CONTRACT_ADDRESS) return;
+    if (!tokenAddress || !feeAmountInWei || !targetContractAddress) return;
 
     const approveArgs = getApproveArgs({
       tokenAddress: tokenAddress as `0x${string}`,
       amount: feeAmountInWei,
+      spender: targetContractAddress as `0x${string}`,
     });
 
     writeApproval(approveArgs);

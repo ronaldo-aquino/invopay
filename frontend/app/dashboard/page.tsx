@@ -9,17 +9,26 @@ import { Button } from "@/components/ui/button";
 import { InvoiceCard } from "@/components/invoices/invoice-card";
 import { InvoiceStatsCard } from "@/components/invoices/invoice-stats-card";
 import { InvoiceTabs } from "@/components/invoices/invoice-tabs";
+import { SubscriptionCard } from "@/components/subscriptions/subscription-card";
+import { SubscriptionTabs } from "@/components/subscriptions/subscription-tabs";
 import { EmptyState } from "@/components/invoices/empty-state";
 import { LoadingState } from "@/components/invoices/loading-state";
-import { getStatusColor } from "@/components/invoices/status-badge";
+import { getStatusColor as getInvoiceStatusColor } from "@/components/invoices/status-badge";
+import { getStatusColor as getSubscriptionStatusColor } from "@/components/subscriptions/status-badge";
 import { useInvoiceList } from "@/hooks/useInvoiceList";
+import { useSubscriptionList } from "@/hooks/useSubscriptionList";
 import type { Invoice } from "@backend/lib/supabase";
+import type { Subscription } from "@backend/lib/supabase";
 
-type TabType = "all" | "paid" | "pending" | "paidByMe";
+type InvoiceTabType = "all" | "paid" | "pending" | "paidByMe";
+type SubscriptionTabType = "all" | "active" | "created" | "paying";
+type ViewType = "invoices" | "subscriptions";
 
 export default function DashboardPage() {
   const { address, isConnected } = useAccount();
-  const [activeTab, setActiveTab] = useState<TabType>("all");
+  const [viewType, setViewType] = useState<ViewType>("invoices");
+  const [activeInvoiceTab, setActiveInvoiceTab] = useState<InvoiceTabType>("all");
+  const [activeSubscriptionTab, setActiveSubscriptionTab] = useState<SubscriptionTabType>("all");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const observerTarget = useRef<HTMLDivElement>(null);
 
@@ -28,12 +37,24 @@ export default function DashboardPage() {
     paidInvoices,
     pendingInvoices,
     invoicesIPaid,
-    totalCounts,
-    loading,
-    loadingMore,
-    hasMore,
-    loadMore,
+    totalCounts: invoiceCounts,
+    loading: invoicesLoading,
+    loadingMore: invoicesLoadingMore,
+    hasMore: invoicesHasMore,
+    loadMore: loadMoreInvoices,
   } = useInvoiceList(address);
+
+  const {
+    allSubscriptions,
+    activeSubscriptions,
+    subscriptionsICreated,
+    subscriptionsIPay,
+    totalCounts: subscriptionCounts,
+    loading: subscriptionsLoading,
+    loadingMore: subscriptionsLoadingMore,
+    hasMore: subscriptionsHasMore,
+    loadMore: loadMoreSubscriptions,
+  } = useSubscriptionList(address);
 
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -44,8 +65,24 @@ export default function DashboardPage() {
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore[activeTab] && !loadingMore && !loading) {
-          loadMore(activeTab);
+        if (viewType === "invoices") {
+          if (
+            entries[0].isIntersecting &&
+            invoicesHasMore[activeInvoiceTab] &&
+            !invoicesLoadingMore &&
+            !invoicesLoading
+          ) {
+            loadMoreInvoices(activeInvoiceTab);
+          }
+        } else {
+          if (
+            entries[0].isIntersecting &&
+            subscriptionsHasMore[activeSubscriptionTab] &&
+            !subscriptionsLoadingMore &&
+            !subscriptionsLoading
+          ) {
+            loadMoreSubscriptions(activeSubscriptionTab);
+          }
         }
       },
       { threshold: 0.1 }
@@ -61,20 +98,46 @@ export default function DashboardPage() {
         observer.unobserve(currentTarget);
       }
     };
-  }, [activeTab, hasMore, loadingMore, loading, loadMore]);
+  }, [
+    viewType,
+    activeInvoiceTab,
+    activeSubscriptionTab,
+    invoicesHasMore,
+    subscriptionsHasMore,
+    invoicesLoadingMore,
+    subscriptionsLoadingMore,
+    invoicesLoading,
+    subscriptionsLoading,
+    loadMoreInvoices,
+    loadMoreSubscriptions,
+  ]);
 
   if (!isConnected || !address) {
     return null;
   }
 
   const currentInvoices =
-    activeTab === "all"
+    activeInvoiceTab === "all"
       ? allInvoices
-      : activeTab === "paid"
+      : activeInvoiceTab === "paid"
         ? paidInvoices
-        : activeTab === "pending"
+        : activeInvoiceTab === "pending"
           ? pendingInvoices
           : invoicesIPaid;
+
+  const currentSubscriptions =
+    activeSubscriptionTab === "all"
+      ? allSubscriptions
+      : activeSubscriptionTab === "active"
+        ? activeSubscriptions
+        : activeSubscriptionTab === "created"
+          ? subscriptionsICreated
+          : subscriptionsIPay;
+
+  const isLoading = viewType === "invoices" ? invoicesLoading : subscriptionsLoading;
+  const isLoadingMore = viewType === "invoices" ? invoicesLoadingMore : subscriptionsLoadingMore;
+  const hasMore = viewType === "invoices" ? invoicesHasMore : subscriptionsHasMore;
+  const activeTab = viewType === "invoices" ? activeInvoiceTab : activeSubscriptionTab;
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-background to-muted/20">
@@ -84,61 +147,154 @@ export default function DashboardPage() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="space-y-1">
               <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Dashboard</h1>
-              <p className="text-muted-foreground text-lg">Manage all your invoices in one place</p>
+              <p className="text-muted-foreground text-lg">
+                Manage all your {viewType === "invoices" ? "invoices" : "subscriptions"} in one place
+              </p>
             </div>
             <Link href="/create">
               <Button size="lg" className="w-full sm:w-auto">
                 <Plus className="mr-2 h-5 w-5" />
-                Create Invoice
+                Create {viewType === "invoices" ? "Invoice" : "Subscription"}
               </Button>
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <InvoiceStatsCard title="All Invoices" count={totalCounts.all} icon="all" />
-            <InvoiceStatsCard title="Invoices I Paid" count={totalCounts.paidByMe} icon="paid" />
+          {/* View Type Selector */}
+          <div className="flex gap-2 border-b-2 border-border/60 pb-2">
+            <button
+              onClick={() => setViewType("invoices")}
+              className={`px-6 py-3 font-semibold text-sm rounded-lg transition-all duration-200 ${
+                viewType === "invoices"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+              }`}
+            >
+              Invoices
+            </button>
+            <button
+              onClick={() => setViewType("subscriptions")}
+              className={`px-6 py-3 font-semibold text-sm rounded-lg transition-all duration-200 ${
+                viewType === "subscriptions"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+              }`}
+            >
+              Subscriptions
+            </button>
           </div>
 
-          <InvoiceTabs
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            counts={{
-              all: totalCounts.all,
-              paid: totalCounts.paid,
-              pending: totalCounts.pending,
-              paidByMe: totalCounts.paidByMe,
-            }}
-          />
-
-          {loading ? (
-            <LoadingState />
-          ) : currentInvoices.length === 0 ? (
-            <EmptyState activeTab={activeTab} />
-          ) : (
+          {viewType === "invoices" ? (
             <>
-              <div className="grid gap-4">
-                {currentInvoices.map((invoice) => (
-                  <InvoiceCard
-                    key={invoice.id}
-                    invoice={invoice}
-                    address={address}
-                    activeTab={activeTab}
-                    copiedId={copiedId}
-                    onCopy={copyToClipboard}
-                    getStatusColor={getStatusColor}
-                  />
-                ))}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <InvoiceStatsCard title="All Invoices" count={invoiceCounts.all} icon="all" />
+                <InvoiceStatsCard
+                  title="Invoices I Paid"
+                  count={invoiceCounts.paidByMe}
+                  icon="paid"
+                />
               </div>
-              {/* Infinite scroll trigger */}
-              {hasMore[activeTab] && (
-                <div ref={observerTarget} className="flex justify-center py-8">
-                  {loadingMore && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                      <span className="text-sm">Loading more invoices...</span>
+
+              <InvoiceTabs
+                activeTab={activeInvoiceTab}
+                onTabChange={setActiveInvoiceTab}
+                counts={{
+                  all: invoiceCounts.all,
+                  paid: invoiceCounts.paid,
+                  pending: invoiceCounts.pending,
+                  paidByMe: invoiceCounts.paidByMe,
+                }}
+              />
+
+              {isLoading ? (
+                <LoadingState />
+              ) : currentInvoices.length === 0 ? (
+                <EmptyState activeTab={activeInvoiceTab} />
+              ) : (
+                <>
+                  <div className="grid gap-4">
+                    {currentInvoices.map((invoice) => (
+                      <InvoiceCard
+                        key={invoice.id}
+                        invoice={invoice}
+                        address={address}
+                        activeTab={activeInvoiceTab}
+                        copiedId={copiedId}
+                        onCopy={copyToClipboard}
+                        getStatusColor={getInvoiceStatusColor}
+                      />
+                    ))}
+                  </div>
+                  {invoicesHasMore[activeInvoiceTab] && (
+                    <div ref={observerTarget} className="flex justify-center py-8">
+                      {isLoadingMore && (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          <span className="text-sm">Loading more invoices...</span>
+                        </div>
+                      )}
                     </div>
                   )}
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <InvoiceStatsCard
+                  title="All Subscriptions"
+                  count={subscriptionCounts.all}
+                  icon="all"
+                />
+                <InvoiceStatsCard
+                  title="Active Subscriptions"
+                  count={subscriptionCounts.active}
+                  icon="paid"
+                />
+              </div>
+
+              <SubscriptionTabs
+                activeTab={activeSubscriptionTab}
+                onTabChange={setActiveSubscriptionTab}
+                counts={{
+                  all: subscriptionCounts.all,
+                  active: subscriptionCounts.active,
+                  created: subscriptionCounts.created,
+                  paying: subscriptionCounts.paying,
+                }}
+              />
+
+              {isLoading ? (
+                <LoadingState />
+              ) : currentSubscriptions.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">No subscriptions found</p>
                 </div>
+              ) : (
+                <>
+                  <div className="grid gap-4">
+                    {currentSubscriptions.map((subscription) => (
+                      <SubscriptionCard
+                        key={subscription.id}
+                        subscription={subscription}
+                        address={address}
+                        activeTab={activeSubscriptionTab}
+                        copiedId={copiedId}
+                        onCopy={copyToClipboard}
+                        getStatusColor={getSubscriptionStatusColor}
+                      />
+                    ))}
+                  </div>
+                  {subscriptionsHasMore[activeSubscriptionTab] && (
+                    <div ref={observerTarget} className="flex justify-center py-8">
+                      {isLoadingMore && (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          <span className="text-sm">Loading more subscriptions...</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}
