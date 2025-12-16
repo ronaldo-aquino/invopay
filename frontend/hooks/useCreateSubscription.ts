@@ -37,11 +37,6 @@ export function useCreateSubscription() {
 
   const saveSubscriptionToDatabase = async (subscriptionData: any, receipt: any, subscriptionIdBytes32: string) => {
     try {
-      console.log("[saveSubscriptionToDatabase] Verifying subscription exists on-chain...", {
-        subscriptionIdBytes32,
-        transactionHash: receipt.transactionHash,
-      });
-
       let onChainSubscription;
       try {
         const subscriptionIdHex = subscriptionIdBytes32.startsWith("0x") 
@@ -49,10 +44,6 @@ export function useCreateSubscription() {
           : `0x${subscriptionIdBytes32}` as `0x${string}`;
         onChainSubscription = await getSubscriptionByBytes32(subscriptionIdHex);
         const creator = (onChainSubscription as any)?.creator;
-        console.log("[saveSubscriptionToDatabase] On-chain subscription found:", {
-          exists: !!onChainSubscription,
-          creator,
-        });
         if (
           !onChainSubscription ||
           !creator ||
@@ -61,7 +52,6 @@ export function useCreateSubscription() {
           throw new Error("Subscription does not exist on-chain.");
         }
       } catch (readError: any) {
-        console.error("[saveSubscriptionToDatabase] Subscription not found on-chain:", readError);
         setIsCreatingOnChain(false);
         delete (window as any).__pendingSubscriptionData;
         setError(
@@ -225,18 +215,11 @@ export function useCreateSubscription() {
 
       (window as any).__pendingSubscriptionData = subscriptionData;
 
-      console.log("[createSubscription] Sending transaction with args:", {
-        address: createArgs.address,
-        functionName: createArgs.functionName,
-        args: createArgs.args,
-      });
-
       writeCreateSubscription(createArgs as any);
     } catch (error: any) {
       setIsCreatingOnChain(false);
       delete (window as any).__pendingSubscriptionData;
       const errorMessage = error?.message || "Unknown error occurred";
-      console.error("[createSubscription] Error:", error);
       setError(`Failed to create subscription: ${errorMessage}`);
     }
   };
@@ -246,7 +229,6 @@ export function useCreateSubscription() {
       setIsCreatingOnChain(false);
       delete (window as any).__pendingSubscriptionData;
       const errorMessage = (writeError as any)?.message || "Transaction failed";
-      console.error("[createSubscription] Write error:", writeError);
       setError(`Transaction failed: ${errorMessage}`);
       resetWrite();
     }
@@ -263,15 +245,7 @@ export function useCreateSubscription() {
 
   useEffect(() => {
     if (receipt && isCreatingOnChain) {
-      console.log("[createSubscription] Transaction receipt received:", {
-        transactionHash: receipt.transactionHash,
-        status: receipt.status,
-        logs: receipt.logs?.length,
-      });
-
-      // Check if transaction was successful
       if (receipt.status === "reverted") {
-        console.error("[createSubscription] Transaction was reverted!");
         setIsCreatingOnChain(false);
         delete (window as any).__pendingSubscriptionData;
         setError("Transaction was reverted. Please check the block explorer for details.");
@@ -281,15 +255,11 @@ export function useCreateSubscription() {
       const subscriptionIdBytes32 = extractSubscriptionIdFromReceipt(receipt);
       const subscriptionData = (window as any).__pendingSubscriptionData;
 
-      console.log("[createSubscription] Extracted subscription ID:", subscriptionIdBytes32);
-
       if (subscriptionIdBytes32 && subscriptionData) {
-        console.log("[createSubscription] Saving to database...");
         saveSubscriptionToDatabase(subscriptionData, receipt, subscriptionIdBytes32);
       } else {
         setIsCreatingOnChain(false);
         delete (window as any).__pendingSubscriptionData;
-        console.error("[createSubscription] Could not extract subscription ID from receipt");
         setError("Could not extract subscription ID from transaction. Please check the block explorer.");
       }
     }
