@@ -6,11 +6,15 @@ import { useAccount } from "wagmi";
 import { keccak256, toHex } from "viem";
 import { Navbar } from "@/components/navbar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { SubscriptionDetails } from "@/components/subscriptions/subscription-details";
 import { QRCodeSection } from "@/components/payment/qr-code-section";
 import { SubscriptionActions } from "@/components/subscriptions/subscription-actions";
 import { useSubscription } from "@/hooks/useSubscription";
 import { usePaySubscription } from "@/hooks/usePaySubscription";
+import { useCancelSubscription } from "@/hooks/useCancelSubscription";
+import { usePauseSubscription } from "@/hooks/usePauseSubscription";
+import { CancelSubscriptionDialog } from "@/components/subscriptions/cancel-subscription-dialog";
 
 export default function SubscriptionPage() {
   const params = useParams();
@@ -19,9 +23,8 @@ export default function SubscriptionPage() {
   const [copied, setCopied] = useState(false);
 
   const { subscription, loading, refetch } = useSubscription(subscriptionId);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
-  // Use the subscription_id_bytes32 from database (saved from on-chain creation)
-  // Don't calculate from UUID - the contract generates a different ID
   const subscriptionIdBytes32 = subscription?.subscription_id_bytes32
     ? (subscription.subscription_id_bytes32.startsWith("0x")
         ? subscription.subscription_id_bytes32 as `0x${string}`
@@ -54,6 +57,44 @@ export default function SubscriptionPage() {
     }, 500);
   });
 
+  const {
+    handleCancel,
+    isCancelling,
+    canCancelByCreator,
+    canCancelByPayer,
+    cancelError,
+    isCancelError,
+    cancelTxHash,
+  } = useCancelSubscription(subscription, subscriptionIdBytes32, () => {
+    setTimeout(() => refetch(), 1000);
+  });
+
+  const {
+    handlePause,
+    handleResume,
+    isPausing,
+    isResuming,
+    canPause,
+    canResume,
+    pauseError,
+    resumeError,
+  } = usePauseSubscription(subscription, subscriptionIdBytes32, () => {
+    setTimeout(() => refetch(), 1000);
+  });
+
+  const isCreator = Boolean(
+    address && 
+    subscription && 
+    address.toLowerCase() === subscription.creator_wallet_address.toLowerCase()
+  );
+
+  const isPayer = 
+    address && 
+    subscription && 
+    subscription.payer_wallet_address &&
+    subscription.payer_wallet_address !== "0x0000000000000000000000000000000000000000" &&
+    address.toLowerCase() === subscription.payer_wallet_address.toLowerCase();
+
   const copySubscriptionLink = () => {
     navigator.clipboard.writeText(window.location.href);
     setCopied(true);
@@ -83,7 +124,6 @@ export default function SubscriptionPage() {
   const subscriptionUrl = typeof window !== "undefined" ? window.location.href : "";
   const nextPaymentDate = new Date(subscription.next_payment_due);
   const isPaymentDue = nextPaymentDate <= new Date();
-  // Allow payment if: subscription is pending (first payment) OR payment is due
   const canMakePayment = subscription.status === "pending" || (subscription.status === "active" && isPaymentDue);
 
   return (
@@ -167,7 +207,73 @@ export default function SubscriptionPage() {
                 </div>
               )}
 
-              {subscription.status !== "active" && (
+              {isCreator && (canPause || canResume || canCancelByCreator) && (
+                <div className="border-t-2 border-border/60 pt-8 space-y-5">
+                  <h3 className="text-xl font-bold">Creator Controls</h3>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    {canPause && (
+                      <Button
+                        onClick={handlePause}
+                        disabled={isPausing || isResuming || isCancelling}
+                        variant="outline"
+                        className="flex-1"
+                      >
+                        {isPausing ? "Pausing..." : "Pause Subscription"}
+                      </Button>
+                    )}
+                    {canResume && (
+                      <Button
+                        onClick={handleResume}
+                        disabled={isPausing || isResuming || isCancelling}
+                        variant="outline"
+                        className="flex-1"
+                      >
+                        {isResuming ? "Resuming..." : "Resume Subscription"}
+                      </Button>
+                    )}
+                    {canCancelByCreator && (
+                      <Button
+                        onClick={() => setShowCancelDialog(true)}
+                        disabled={isPausing || isResuming || isCancelling}
+                        variant="destructive"
+                        className="flex-1"
+                      >
+                        Cancel Subscription
+                      </Button>
+                    )}
+                  </div>
+                  {(pauseError || resumeError) && (
+                    <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                      <p className="text-sm text-red-800 dark:text-red-200">
+                        {pauseError?.message || resumeError?.message || "An error occurred"}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {isPayer && canCancelByPayer && (
+                <div className="border-t-2 border-border/60 pt-8 space-y-5">
+                  <h3 className="text-xl font-bold">Subscription Management</h3>
+                  <Button
+                    onClick={() => setShowCancelDialog(true)}
+                    disabled={isCancelling}
+                    variant="destructive"
+                    className="w-full"
+                  >
+                    Cancel Subscription
+                  </Button>
+                  {isCancelError && (
+                    <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                      <p className="text-sm text-red-800 dark:text-red-200">
+                        {cancelError?.message || "Failed to cancel subscription"}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {subscription.status !== "active" && subscription.status !== "pending" && (
                 <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
                   <p className="font-semibold text-yellow-800 dark:text-yellow-200">
                     This subscription is {subscription.status.replace(/_/g, " ")}
@@ -178,6 +284,14 @@ export default function SubscriptionPage() {
           </Card>
         </div>
       </main>
+
+      <CancelSubscriptionDialog
+        open={showCancelDialog}
+        onOpenChange={setShowCancelDialog}
+        onConfirm={handleCancel}
+        isCancelling={isCancelling}
+        isCreator={isCreator}
+      />
     </div>
   );
 }
