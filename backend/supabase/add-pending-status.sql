@@ -20,3 +20,4 @@ WHERE total_payments = 0
   AND (payer_wallet_address = '0x0000000000000000000000000000000000000000' 
        OR payer_wallet_address IS NULL);
 
+

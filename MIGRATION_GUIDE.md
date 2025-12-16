@@ -183,3 +183,4 @@ npm run migrate:subscriptions:show
 - **Project Ref:** `xlkwhnncrhijzitzcsfq`
 - **Direct Link:** https://supabase.com/dashboard/project/xlkwhnncrhijzitzcsfq
 
+

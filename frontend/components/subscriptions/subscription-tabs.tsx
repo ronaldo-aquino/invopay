@@ -61,5 +61,3 @@ export function SubscriptionTabs({ activeTab, onTabChange, counts }: Subscriptio
     </div>
   );
 }
-
-

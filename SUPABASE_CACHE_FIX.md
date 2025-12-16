@@ -50,3 +50,4 @@ ORDER BY table_name;
 Se as tabelas aparecerem e a aplicação ainda der erro, pode ser um problema de RLS (Row Level Security). Nesse caso, verifique as políticas de segurança das tabelas.
 
 
+
