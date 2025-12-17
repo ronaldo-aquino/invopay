@@ -36,18 +36,25 @@ export function FeeDisplay({
       ? allowance
       : undefined;
 
+  const hasValidAllowance = 
+    allowanceBigInt !== undefined &&
+    allowanceBigInt !== null &&
+    typeof allowanceBigInt === "bigint" &&
+    allowanceBigInt > 0n;
+
+  const hasValidFeeAmount =
+    feeAmountInWei !== undefined &&
+    feeAmountInWei !== null &&
+    typeof feeAmountInWei === "bigint" &&
+    feeAmountInWei > 0n;
+
   const isApproved =
     !isLoadingAllowance &&
     !allowanceError &&
     isAllowanceSuccess &&
     !needsApproval &&
-    allowanceBigInt !== undefined &&
-    allowanceBigInt !== null &&
-    typeof allowanceBigInt === "bigint" &&
-    allowanceBigInt > 0n &&
-    feeAmountInWei !== undefined &&
-    feeAmountInWei !== null &&
-    typeof feeAmountInWei === "bigint" &&
+    hasValidAllowance &&
+    hasValidFeeAmount &&
     allowanceBigInt >= feeAmountInWei;
 
   return (

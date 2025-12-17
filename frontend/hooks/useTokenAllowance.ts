@@ -33,6 +33,9 @@ export function useTokenAllowance(
       retryDelay: 1000,
       staleTime: 0,
       gcTime: 0,
+      refetchOnMount: true,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
     },
   });
 
@@ -49,10 +52,16 @@ export function useTokenAllowance(
   useEffect(() => {
     if (approvalReceipt && approvalReceipt.status === "success") {
       setTimeout(() => {
-      refetchAllowance();
+        refetchAllowance();
       }, 1000);
     }
   }, [approvalReceipt, refetchAllowance]);
+
+  useEffect(() => {
+    if (tokenAddress && address && INVOPAY_CONTRACT_ADDRESS && feeAmountInWei && isCorrectChain) {
+      refetchAllowance();
+    }
+  }, [tokenAddress, address, refetchAllowance, INVOPAY_CONTRACT_ADDRESS, feeAmountInWei, isCorrectChain]);
 
   const normalizedAllowance = allowance === null || allowance === undefined || allowance === "0x" 
     ? undefined 
@@ -70,7 +79,7 @@ export function useTokenAllowance(
     normalizedAllowance === null ||
     typeof normalizedAllowance !== "bigint" ||
     normalizedAllowance === 0n ||
-    needsApproval(normalizedAllowance, feeAmountInWei);
+    (normalizedAllowance !== undefined && feeAmountInWei !== undefined && needsApproval(normalizedAllowance, feeAmountInWei));
 
   const handleApprove = () => {
     if (!tokenAddress || !feeAmountInWei || !INVOPAY_CONTRACT_ADDRESS) return;
