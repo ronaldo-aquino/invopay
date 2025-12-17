@@ -58,13 +58,13 @@ export function useTokenAllowance(
     ? undefined 
     : (allowance as bigint | undefined);
 
-  const needsApprovalCheck = 
+  const needsApprovalCheck: boolean = 
     !isCorrectChain || 
     !address || 
     !tokenAddress || 
     !feeAmountInWei ||
     isLoadingAllowance ||
-    allowanceError ||
+    !!allowanceError ||
     !isAllowanceSuccess ||
     !normalizedAllowance ||
     typeof normalizedAllowance !== "bigint" ||
