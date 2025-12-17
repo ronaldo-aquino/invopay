@@ -203,7 +203,6 @@ export async function burnUSDC(
     const feeResponse = await fetch(feeApiUrl);
     if (feeResponse.ok) {
       const feeData = await feeResponse.json();
-      console.log(`[CCTP] Fee API response:`, feeData);
       
       // According to Circle docs, API returns an array with fee options
       // Each option has: finalityThreshold, minimumFee (in bps)
@@ -504,7 +503,6 @@ async function getMessageFromCircleAPI(
               rawAttestation.length > 2) {
             attestation = rawAttestation;
           } else {
-            console.log(`[CCTP] Message found but attestation is not ready yet (${rawAttestation}), will need to fetch separately`);
           }
           
           return { message, messageHash, nonce, attestation };
