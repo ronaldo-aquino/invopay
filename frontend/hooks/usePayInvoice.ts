@@ -81,7 +81,7 @@ export function usePayInvoice(
     },
   });
 
-  const { data: onChainInvoice } = useReadContract({
+  const { data: onChainInvoice, refetch: refetchOnChainInvoice } = useReadContract({
     address: INVOPAY_CONTRACT_ADDRESS as `0x${string}`,
     abi: INVOPAY_ABI,
     functionName: "getInvoice",
@@ -219,6 +219,9 @@ export function usePayInvoice(
             payerAddressLower,
             paymentGasCost
           );
+          setTimeout(() => {
+            refetchOnChainInvoice();
+          }, 2000);
           if (onPaymentSuccess) {
             onPaymentSuccess();
           }
@@ -284,11 +287,14 @@ export function usePayInvoice(
               paid_at: new Date().toISOString(),
               gas_cost_payment: paymentGasCost,
             });
+            setTimeout(() => {
+              refetchOnChainInvoice();
+            }, 2000);
             if (onPaymentSuccess) {
               setTimeout(() => onPaymentSuccess(), 1000);
             }
           } catch (updateError) {
-            console.error("Failed to update invoice:", updateError);
+            // Failed to update invoice
           }
           return;
         }
@@ -301,6 +307,9 @@ export function usePayInvoice(
               payerToUse,
               paymentGasCost
             );
+            setTimeout(() => {
+              refetchOnChainInvoice();
+            }, 2000);
             if (onPaymentSuccess) {
               setTimeout(() => onPaymentSuccess(), 1000);
             }
@@ -315,6 +324,9 @@ export function usePayInvoice(
                   payer_address: payerToUse,
                   gas_cost_payment: paymentGasCost,
                 });
+                setTimeout(() => {
+                  refetchOnChainInvoice();
+                }, 2000);
                 if (onPaymentSuccess) {
                   setTimeout(() => onPaymentSuccess(), 1000);
                 }
@@ -327,13 +339,14 @@ export function usePayInvoice(
         }
       })();
     }
-  }, [paymentReceipt, invoice, invoiceIdBytes32, address, payerAddressAtPayment, onPaymentSuccess]);
+  }, [paymentReceipt, invoice, invoiceIdBytes32, address, payerAddressAtPayment, onPaymentSuccess, refetchOnChainInvoice]);
 
   return {
     decimals,
     allowance,
     balance,
     onChainInvoice,
+    refetchOnChainInvoice,
     needsApproval: needsApprovalCheck,
     isApproving,
     isApprovalConfirming,

@@ -94,8 +94,9 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-background to-muted/20">
       <Navbar />
-      <main className="flex-1 container mx-auto px-4 py-8 md:py-12">
-        <div className="max-w-7xl mx-auto space-y-8">
+      <main className="flex-1 w-full">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+          <div className="space-y-8">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="space-y-1">
               <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Dashboard</h1>
@@ -157,6 +158,7 @@ export default function DashboardPage() {
               )}
             </>
           )}
+          </div>
         </div>
       </main>
     </div>

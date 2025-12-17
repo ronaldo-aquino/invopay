@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { PaymentDetails } from "@/components/payment/payment-details";
 import { QRCodeModal } from "@/components/payment/qr-code-modal";
 import { CCTPPaymentModal } from "@/components/payment/cctp-payment-modal";
+import { ArcPaymentModal } from "@/components/payment/arc-payment-modal";
 import { useInvoice } from "@/hooks/useInvoice";
 import { usePayInvoice } from "@/hooks/usePayInvoice";
 import { QrCode, Loader2 } from "lucide-react";
@@ -19,6 +20,7 @@ export default function PaymentPage() {
   const invoiceId = params.id as string;
   const { isConnected } = useAccount();
   const [copied, setCopied] = useState(false);
+  const [arcModalOpen, setArcModalOpen] = useState(false);
   const [cctpModalOpen, setCctpModalOpen] = useState(false);
   const [qrCodeModalOpen, setQrCodeModalOpen] = useState(false);
 
@@ -28,6 +30,7 @@ export default function PaymentPage() {
 
   const {
     onChainInvoice,
+    refetchOnChainInvoice,
     needsApproval,
     isApproving,
     isApprovalConfirming,
@@ -45,8 +48,10 @@ export default function PaymentPage() {
   } = usePayInvoice(invoice, invoiceIdBytes32, () => {
     setTimeout(() => {
       refetch();
+      refetchOnChainInvoice();
       const interval = setInterval(() => {
         refetch();
+        refetchOnChainInvoice();
       }, 2000);
       setTimeout(() => clearInterval(interval), 10000);
     }, 500);
@@ -98,19 +103,7 @@ export default function PaymentPage() {
                   invoice={invoice}
                   isConnected={isConnected}
                   onChainInvoice={onChainInvoice}
-                  needsApproval={needsApproval}
-                  isApproving={isApproving}
-                  isApprovalConfirming={isApprovalConfirming}
-                  isPaying={isPaying}
-                  isPaymentConfirming={isPaymentConfirming}
-                  invoiceIdBytes32={invoiceIdBytes32}
-                  transferHash={transferHash}
-                  isPayError={isPayError}
-                  payError={payError}
-                  isPaymentReceiptError={isPaymentReceiptError}
-                  paymentReceiptError={paymentReceiptError}
-                  onApprove={handleApprove}
-                  onPay={handlePayInvoice}
+                  onOpenArcModal={() => setArcModalOpen(true)}
                   onOpenCCTPModal={() => setCctpModalOpen(true)}
                 />
 
@@ -161,7 +154,7 @@ export default function PaymentPage() {
                       <p className={`text-sm font-medium ${
                         onChainInvoice.status === 1 ? "text-green-600 dark:text-green-400" : ""
                       }`}>
-                        {onChainInvoice.status === 1 ? "Pago" : (isApproving || isApprovalConfirming || isPaying || isPaymentConfirming) ? "Processando..." : "Pendente"}
+                        {onChainInvoice.status === 1 ? "Paid" : (isApproving || isApprovalConfirming || isPaying || isPaymentConfirming) ? "Processing..." : "Pending"}
                       </p>
                     </div>
                   </div>
@@ -178,6 +171,36 @@ export default function PaymentPage() {
         qrCodeValue={paymentUrl}
         copied={copied}
         onCopy={copyPaymentLink}
+      />
+
+      <ArcPaymentModal
+        invoice={invoice}
+        invoiceIdBytes32={invoiceIdBytes32}
+        open={arcModalOpen}
+        onOpenChange={setArcModalOpen}
+        needsApproval={needsApproval}
+        isApproving={isApproving}
+        isApprovalConfirming={isApprovalConfirming}
+        isPaying={isPaying}
+        isPaymentConfirming={isPaymentConfirming}
+        isPayError={isPayError}
+        payError={payError}
+        isPaymentReceiptError={isPaymentReceiptError}
+        paymentReceiptError={paymentReceiptError}
+        transferHash={transferHash}
+        onApprove={handleApprove}
+        onPay={handlePayInvoice}
+        onPaymentSuccess={() => {
+          refetch();
+          setTimeout(() => {
+            refetch();
+            refetchOnChainInvoice();
+          }, 1000);
+          setTimeout(() => {
+            refetch();
+            refetchOnChainInvoice();
+          }, 3000);
+        }}
       />
 
       {invoice.currency === "USDC" && (

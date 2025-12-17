@@ -10,19 +10,7 @@ interface PaymentDetailsProps {
   invoice: Invoice;
   isConnected: boolean;
   onChainInvoice: any;
-  needsApproval: boolean;
-  isApproving: boolean;
-  isApprovalConfirming: boolean;
-  isPaying: boolean;
-  isPaymentConfirming: boolean;
-  invoiceIdBytes32: `0x${string}` | undefined;
-  transferHash: `0x${string}` | undefined;
-  isPayError: boolean;
-  payError: any;
-  isPaymentReceiptError: boolean;
-  paymentReceiptError: any;
-  onApprove: () => void;
-  onPay: () => void;
+  onOpenArcModal?: () => void;
   onOpenCCTPModal?: () => void;
 }
 
@@ -30,19 +18,7 @@ export function PaymentDetails({
   invoice,
   isConnected,
   onChainInvoice,
-  needsApproval,
-  isApproving,
-  isApprovalConfirming,
-  isPaying,
-  isPaymentConfirming,
-  invoiceIdBytes32,
-  transferHash,
-  isPayError,
-  payError,
-  isPaymentReceiptError,
-  paymentReceiptError,
-  onApprove,
-  onPay,
+  onOpenArcModal,
   onOpenCCTPModal,
 }: PaymentDetailsProps) {
   const [copiedAddress, setCopiedAddress] = useState(false);
@@ -76,19 +52,7 @@ export function PaymentDetails({
             invoice={invoice}
             isConnected={isConnected}
             onChainInvoice={onChainInvoice}
-            needsApproval={needsApproval}
-            isApproving={isApproving}
-            isApprovalConfirming={isApprovalConfirming}
-            isPaying={isPaying}
-            isPaymentConfirming={isPaymentConfirming}
-            invoiceIdBytes32={invoiceIdBytes32}
-            transferHash={transferHash}
-            isPayError={isPayError}
-            payError={payError}
-            isPaymentReceiptError={isPaymentReceiptError}
-            paymentReceiptError={paymentReceiptError}
-            onApprove={onApprove}
-            onPay={onPay}
+            onOpenArcModal={onOpenArcModal}
             onOpenCCTPModal={onOpenCCTPModal}
           />
         </div>

@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
-import { useAccount, useWalletClient, usePublicClient, useSwitchChain, useWriteContract, useWaitForTransactionReceipt, useWatchContractEvent } from "wagmi";
-import { burnUSDC, fetchAttestation } from "@/lib/services/cctp.service";
+import { useAccount, useWalletClient, usePublicClient, useSwitchChain, useWriteContract, useWaitForTransactionReceipt, useWatchContractEvent, useReadContract } from "wagmi";
+import { burnUSDC, fetchAttestation, approveUSDCForCCTP } from "@/lib/services/cctp.service";
 import { CCTP_SUPPORTED_CHAINS } from "@/lib/cctp-constants";
-import { ARC_TESTNET_CHAIN_ID, INVOPAY_CONTRACT_ADDRESS } from "@/lib/constants";
+import { ARC_TESTNET_CHAIN_ID, INVOPAY_CONTRACT_ADDRESS, USDC_CONTRACT_ADDRESS, ERC20_ABI } from "@/lib/constants";
 import { INVOPAY_ABI } from "@/lib/contract-abi";
 import { MESSAGE_TRANSMITTER_ABI } from "@/lib/services/cctp.service";
 import { getTransactionReceipt, calculateGasCost } from "@backend/lib/services/contract.service";
 import { updateInvoicePayment } from "@backend/lib/services/invoice-db.service";
 import { arcTestnet } from "@/lib/wagmi";
+import { parseUnits } from "viem";
 import type { Invoice } from "@backend/lib/supabase";
 
 export type CCTPPaymentStep =
@@ -16,6 +17,7 @@ export type CCTPPaymentStep =
   | "burning"
   | "waiting_attestation"
   | "minting"
+  | "approving_arc"
   | "paying"
   | "success"
   | "error";
@@ -51,11 +53,25 @@ export function useCCTPPayment(
   } = useWriteContract();
 
   const {
+    writeContract: writeApproveArc,
+    data: approveArcTxHash,
+    isPending: isApprovingArc,
+    error: approveArcError,
+  } = useWriteContract();
+
+  const {
     writeContract: writeMint,
     data: mintTxHashFromHook,
     isPending: isMinting,
     error: mintError,
   } = useWriteContract();
+
+  const { isLoading: isApprovalArcConfirming, data: approveArcReceipt } = useWaitForTransactionReceipt({
+    hash: approveArcTxHash,
+    query: {
+      enabled: !!approveArcTxHash,
+    },
+  });
 
   const {
     isLoading: isWaitingForMint,
@@ -107,8 +123,74 @@ export function useCCTPPayment(
         setMintTxHash(mintReceipt.transactionHash);
         
         setTimeout(async () => {
-          setStep("paying");
+          if (!invoiceIdBytes32 || !INVOPAY_CONTRACT_ADDRESS || !invoice || !address) {
+            setError("Invoice ID or contract address not found. Cannot pay invoice.");
+            setStep("error");
+            return;
+          }
 
+          try {
+            await checkInvoiceStatusBeforePayment();
+          } catch (checkError: any) {
+            setError(checkError.message);
+            setStep("error");
+            return;
+          }
+
+          try {
+            const { createPublicClient, http } = await import("viem");
+            const { CCTP_SUPPORTED_CHAINS } = await import("@/lib/cctp-constants");
+            const arcConfig = CCTP_SUPPORTED_CHAINS[destinationChainId];
+            
+            const arcPublicClient = createPublicClient({
+              chain: arcTestnet,
+              transport: http(arcConfig.rpcUrl),
+            });
+
+            const invoiceAmount = parseUnits(invoice.amount.toString(), 6);
+            const allowance = await arcPublicClient.readContract({
+              address: USDC_CONTRACT_ADDRESS as `0x${string}`,
+              abi: ERC20_ABI,
+              functionName: "allowance",
+              args: [address as `0x${string}`, INVOPAY_CONTRACT_ADDRESS as `0x${string}`],
+            }) as bigint;
+
+            if (allowance < invoiceAmount) {
+              setStep("approving_arc");
+              
+              const maxApproval = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+              
+              writeApproveArc({
+                address: USDC_CONTRACT_ADDRESS as `0x${string}`,
+                abi: ERC20_ABI,
+                functionName: "approve",
+                args: [INVOPAY_CONTRACT_ADDRESS as `0x${string}`, maxApproval],
+              });
+            } else {
+              setStep("paying");
+              writePayInvoice({
+                address: INVOPAY_CONTRACT_ADDRESS as `0x${string}`,
+                abi: INVOPAY_ABI,
+                functionName: "payInvoice",
+                args: [invoiceIdBytes32],
+              });
+            }
+          } catch (approveCheckError: any) {
+            setError(`Failed to check allowance: ${approveCheckError?.message || 'Unknown error'}`);
+            setStep("error");
+          }
+        }, 2000);
+      } else {
+        setError("Mint transaction failed");
+        setStep("error");
+      }
+    }
+  }, [mintReceipt, step, invoiceIdBytes32, invoice, address, writePayInvoice, writeApproveArc, publicClient, destinationChainId]);
+
+  useEffect(() => {
+    if (approveArcReceipt && step === "approving_arc") {
+      if (approveArcReceipt.status === "success") {
+        setTimeout(async () => {
           if (!invoiceIdBytes32 || !INVOPAY_CONTRACT_ADDRESS) {
             setError("Invoice ID or contract address not found. Cannot pay invoice.");
             setStep("error");
@@ -122,25 +204,29 @@ export function useCCTPPayment(
             setStep("error");
             return;
           }
-          
-          try {
-            writePayInvoice({
-              address: INVOPAY_CONTRACT_ADDRESS as `0x${string}`,
-              abi: INVOPAY_ABI,
-              functionName: "payInvoice",
-              args: [invoiceIdBytes32],
-            });
-          } catch (payError: any) {
-            setError(`Failed to send payment transaction: ${payError?.message || 'Unknown error'}`);
-            setStep("error");
-          }
-        }, 2000);
+
+          setStep("paying");
+          writePayInvoice({
+            address: INVOPAY_CONTRACT_ADDRESS as `0x${string}`,
+            abi: INVOPAY_ABI,
+            functionName: "payInvoice",
+            args: [invoiceIdBytes32],
+          });
+        }, 1000);
       } else {
-        setError("Mint transaction failed");
+        setError("Approval transaction failed");
         setStep("error");
       }
     }
-  }, [mintReceipt, step, invoiceIdBytes32, writePayInvoice, publicClient]);
+  }, [approveArcReceipt, step, invoiceIdBytes32, writePayInvoice]);
+
+  useEffect(() => {
+    if (approveArcError && step === "approving_arc") {
+      const errorMsg = (approveArcError as any)?.message || String(approveArcError) || "Unknown error";
+      setError(`Failed to approve USDC: ${errorMsg}`);
+      setStep("error");
+    }
+  }, [approveArcError, step]);
 
   useEffect(() => {
     if (mintError && step === "minting") {
@@ -295,6 +381,43 @@ export function useCCTPPayment(
 
     setSourceChainId(selectedSourceChainId);
     setError(null);
+
+    try {
+      const { createPublicClient, http, formatEther } = await import("viem");
+      const { CCTP_SUPPORTED_CHAINS } = await import("@/lib/cctp-constants");
+      const arcConfig = CCTP_SUPPORTED_CHAINS[destinationChainId];
+      
+      if (!arcConfig) {
+        throw new Error("Arc Testnet configuration not found");
+      }
+
+      const arcPublicClient = createPublicClient({
+        chain: arcTestnet,
+        transport: http(arcConfig.rpcUrl),
+      });
+
+      const usdcBalance = await arcPublicClient.getBalance({ address });
+      const minRequiredBalance = BigInt("1000000000000000"); // 0.001 USDC minimum (18 decimals for native USDC)
+      
+      if (usdcBalance < minRequiredBalance) {
+        const balanceFormatted = formatEther(usdcBalance);
+        const errorMsg = `Insufficient USDC balance on Arc Testnet for gas fees.\n\n` +
+          `Current balance: ${balanceFormatted} USDC\n` +
+          `Required: ~0.001 USDC minimum for gas fees\n\n` +
+          `Please add USDC to your wallet on Arc Testnet before proceeding. ` +
+          `You can get testnet USDC from Circle faucet (faucet.circle.com).`;
+        setError(errorMsg);
+        setStep("error");
+        return;
+      }
+    } catch (balanceCheckError: any) {
+      if (balanceCheckError.message && balanceCheckError.message.includes("Insufficient USDC")) {
+        setError(balanceCheckError.message);
+        setStep("error");
+        return;
+      }
+    }
+
     setStep("approving");
 
     try {
@@ -307,7 +430,101 @@ export function useCCTPPayment(
         await switchChainAsync({ chainId: selectedSourceChainId });
       }
 
+      const { createPublicClient, http, formatEther, defineChain } = await import("viem");
+      const { sepolia } = await import("wagmi/chains");
+      
+      let sourceChain;
+      if (selectedSourceChainId === 11155111) {
+        sourceChain = sepolia;
+      } else {
+        sourceChain = defineChain({
+          id: selectedSourceChainId,
+          name: sourceConfig.name,
+          nativeCurrency: {
+            decimals: 18,
+            name: "ETH",
+            symbol: "ETH",
+          },
+          rpcUrls: {
+            default: {
+              http: [sourceConfig.rpcUrl],
+            },
+          },
+          blockExplorers: sourceConfig.blockExplorer ? {
+            default: {
+              name: "Explorer",
+              url: sourceConfig.blockExplorer,
+            },
+          } : undefined,
+          testnet: true,
+        });
+      }
+
+      const sourcePublicClient = createPublicClient({
+        chain: sourceChain,
+        transport: http(sourceConfig.rpcUrl),
+      });
+
+      const nativeBalance = await sourcePublicClient.getBalance({ address });
+      const minRequiredBalance = BigInt("1000000000000000"); // 0.001 ETH minimum for burn gas
+      
+      if (nativeBalance < minRequiredBalance) {
+        const balanceFormatted = formatEther(nativeBalance);
+        const errorMsg = `Insufficient native token balance on ${sourceConfig.name} for gas fees.\n\n` +
+          `Current balance: ${balanceFormatted} ETH\n` +
+          `Required: ~0.001 ETH minimum for burn transaction gas\n\n` +
+          `Please add native tokens (ETH) to your wallet on ${sourceConfig.name} before proceeding.`;
+        setError(errorMsg);
+        setStep("error");
+        return;
+      }
+
       const amount = invoice.amount.toString();
+
+      const approveHash = await approveUSDCForCCTP(
+        selectedSourceChainId,
+        amount,
+        address,
+        walletClient
+      );
+
+      if (approveHash && approveHash !== "0x") {
+        const { createPublicClient, http, defineChain } = await import("viem");
+        const { sepolia } = await import("wagmi/chains");
+        
+        let sourceChain;
+        if (selectedSourceChainId === 11155111) {
+          sourceChain = sepolia;
+        } else {
+          sourceChain = defineChain({
+            id: selectedSourceChainId,
+            name: sourceConfig.name,
+            nativeCurrency: {
+              decimals: 18,
+              name: "ETH",
+              symbol: "ETH",
+            },
+            rpcUrls: {
+              default: {
+                http: [sourceConfig.rpcUrl],
+              },
+            },
+            blockExplorers: sourceConfig.blockExplorer ? {
+              default: {
+                name: "Explorer",
+                url: sourceConfig.blockExplorer,
+              },
+            } : undefined,
+            testnet: true,
+          });
+        }
+        
+        const approvePublicClient = createPublicClient({
+          chain: sourceChain,
+          transport: http(sourceConfig.rpcUrl),
+        });
+        await approvePublicClient.waitForTransactionReceipt({ hash: approveHash });
+      }
 
       setStep("burning");
       const burnResult = await burnUSDC(
@@ -471,9 +688,7 @@ export function useCCTPPayment(
         });
         
         if (receipt.status === "success") {
-          setStep("paying");
-          
-          if (!invoiceIdBytes32 || !INVOPAY_CONTRACT_ADDRESS) {
+          if (!invoiceIdBytes32 || !INVOPAY_CONTRACT_ADDRESS || !invoice || !address) {
             setError("Invoice ID or contract address not found. Cannot pay invoice.");
             setStep("error");
             return;
@@ -486,13 +701,40 @@ export function useCCTPPayment(
             setStep("error");
             return;
           }
-          
-          writePayInvoice({
-            address: INVOPAY_CONTRACT_ADDRESS as `0x${string}`,
-            abi: INVOPAY_ABI,
-            functionName: "payInvoice",
-            args: [invoiceIdBytes32],
-          });
+
+          try {
+            const invoiceAmount = parseUnits(invoice.amount.toString(), 6);
+            const allowance = await arcPublicClient.readContract({
+              address: USDC_CONTRACT_ADDRESS as `0x${string}`,
+              abi: ERC20_ABI,
+              functionName: "allowance",
+              args: [address as `0x${string}`, INVOPAY_CONTRACT_ADDRESS as `0x${string}`],
+            }) as bigint;
+
+            if (allowance < invoiceAmount) {
+              setStep("approving_arc");
+              
+              const maxApproval = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+              
+              writeApproveArc({
+                address: USDC_CONTRACT_ADDRESS as `0x${string}`,
+                abi: ERC20_ABI,
+                functionName: "approve",
+                args: [INVOPAY_CONTRACT_ADDRESS as `0x${string}`, maxApproval],
+              });
+            } else {
+              setStep("paying");
+              writePayInvoice({
+                address: INVOPAY_CONTRACT_ADDRESS as `0x${string}`,
+                abi: INVOPAY_ABI,
+                functionName: "payInvoice",
+                args: [invoiceIdBytes32],
+              });
+            }
+          } catch (approveCheckError: any) {
+            setError(`Failed to check allowance: ${approveCheckError?.message || 'Unknown error'}`);
+            setStep("error");
+          }
         } else {
           throw new Error("Mint transaction failed");
         }
@@ -713,9 +955,7 @@ export function useCCTPPayment(
         });
         
         if (receipt.status === "success") {
-          setStep("paying");
-          
-          if (!invoiceIdBytes32 || !INVOPAY_CONTRACT_ADDRESS) {
+          if (!invoiceIdBytes32 || !INVOPAY_CONTRACT_ADDRESS || !invoice || !address) {
             setError("Invoice ID or contract address not found. Cannot pay invoice.");
             setStep("error");
             return;
@@ -728,13 +968,49 @@ export function useCCTPPayment(
             setStep("error");
             return;
           }
-          
-          writePayInvoice({
-            address: INVOPAY_CONTRACT_ADDRESS as `0x${string}`,
-            abi: INVOPAY_ABI,
-            functionName: "payInvoice",
-            args: [invoiceIdBytes32],
-          });
+
+          try {
+            const { createPublicClient, http } = await import("viem");
+            const { CCTP_SUPPORTED_CHAINS } = await import("@/lib/cctp-constants");
+            const arcConfig = CCTP_SUPPORTED_CHAINS[destinationChainId];
+            
+            const arcPublicClient = createPublicClient({
+              chain: arcTestnet,
+              transport: http(arcConfig.rpcUrl),
+            });
+
+            const invoiceAmount = parseUnits(invoice.amount.toString(), 6);
+            const allowance = await arcPublicClient.readContract({
+              address: USDC_CONTRACT_ADDRESS as `0x${string}`,
+              abi: ERC20_ABI,
+              functionName: "allowance",
+              args: [address as `0x${string}`, INVOPAY_CONTRACT_ADDRESS as `0x${string}`],
+            }) as bigint;
+
+            if (allowance < invoiceAmount) {
+              setStep("approving_arc");
+              
+              const maxApproval = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+              
+              writeApproveArc({
+                address: USDC_CONTRACT_ADDRESS as `0x${string}`,
+                abi: ERC20_ABI,
+                functionName: "approve",
+                args: [INVOPAY_CONTRACT_ADDRESS as `0x${string}`, maxApproval],
+              });
+            } else {
+              setStep("paying");
+              writePayInvoice({
+                address: INVOPAY_CONTRACT_ADDRESS as `0x${string}`,
+                abi: INVOPAY_ABI,
+                functionName: "payInvoice",
+                args: [invoiceIdBytes32],
+              });
+            }
+          } catch (approveCheckError: any) {
+            setError(`Failed to check allowance: ${approveCheckError?.message || 'Unknown error'}`);
+            setStep("error");
+          }
         } else {
           throw new Error("Mint transaction failed");
         }
@@ -784,4 +1060,6 @@ export function useCCTPPayment(
     },
   };
 }
+
+
 

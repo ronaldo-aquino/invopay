@@ -10,12 +10,12 @@ interface QRCodeSectionProps {
 
 export function QRCodeSection({ qrCodeValue, copied, onCopy }: QRCodeSectionProps) {
   return (
-    <div className="flex flex-col items-center justify-center space-y-5">
+    <div className="hidden md:flex flex-col items-center justify-center space-y-5">
       <div className="p-6 bg-background border-2 rounded-2xl shadow-lg">
         <QRCodeSVG value={qrCodeValue} size={220} />
       </div>
       <p className="text-sm text-muted-foreground text-center font-medium">
-        Scan with your mobile wallet to pay
+        Scan this page with your mobile device to access the payment page
       </p>
       <Button variant="outline" size="lg" onClick={onCopy} className="w-full">
         {copied ? (
@@ -33,4 +33,3 @@ export function QRCodeSection({ qrCodeValue, copied, onCopy }: QRCodeSectionProp
     </div>
   );
 }
-

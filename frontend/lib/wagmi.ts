@@ -28,9 +28,7 @@ export const arcTestnet = defineChain({
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "000000000000000000000000000000000000000000";
 
 if (!process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID) {
-  console.warn(
-    "⚠️  NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID not set. Using placeholder. Get your project ID from https://cloud.walletconnect.com"
-  );
+  // NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID not set. Using placeholder. Get your project ID from https://cloud.walletconnect.com
 }
 
 export const config = getDefaultConfig({

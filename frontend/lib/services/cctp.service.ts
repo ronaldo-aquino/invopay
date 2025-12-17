@@ -33,6 +33,85 @@ const ERC20_ABI = [
   },
 ] as const;
 
+export async function approveUSDCForCCTP(
+  sourceChainId: number,
+  amount: string,
+  sourceWallet: Address,
+  walletClient: any
+): Promise<`0x${string}`> {
+  const sourceConfig = CCTP_SUPPORTED_CHAINS[sourceChainId];
+
+  if (!sourceConfig) {
+    throw new Error("Unsupported chain");
+  }
+
+  let sourceChain;
+  if (sourceChainId === 11155111) {
+    sourceChain = sepolia;
+  } else {
+    sourceChain = defineChain({
+      id: sourceChainId,
+      name: sourceConfig.name,
+      nativeCurrency: {
+        decimals: 18,
+        name: "ETH",
+        symbol: "ETH",
+      },
+      rpcUrls: {
+        default: {
+          http: [sourceConfig.rpcUrl],
+        },
+      },
+      blockExplorers: sourceConfig.blockExplorer ? {
+        default: {
+          name: "Explorer",
+          url: sourceConfig.blockExplorer,
+        },
+      } : undefined,
+      testnet: true,
+    });
+  }
+
+  const publicClient = createPublicClient({
+    chain: sourceChain,
+    transport: http(sourceConfig.rpcUrl, {
+      timeout: 30000,
+      retryCount: 3,
+      retryDelay: 1000,
+    }),
+  });
+
+  const amountWei = parseUnits(amount, 6);
+
+  const allowance = await publicClient.readContract({
+    address: sourceConfig.usdcAddress,
+    abi: ERC20_ABI,
+    functionName: "allowance",
+    args: [sourceWallet, sourceConfig.tokenMessenger],
+  });
+
+  if (allowance >= amountWei) {
+    return "0x" as `0x${string}`;
+  }
+
+  const maxApproval = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+  
+  const approveHash = await walletClient.writeContract({
+    address: sourceConfig.usdcAddress,
+    abi: ERC20_ABI,
+    functionName: "approve",
+    args: [sourceConfig.tokenMessenger, maxApproval],
+  });
+
+  const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveHash });
+  
+  if (approveReceipt.status === "reverted") {
+    throw new Error("Approval transaction was reverted. Please try again.");
+  }
+
+  return approveHash;
+}
+
 const TOKEN_MESSENGER_ABI = [
   {
     inputs: [
@@ -406,7 +485,6 @@ async function getMessageFromCircleAPI(
       }
       
       const fullUrl = `${apiUrl}?transactionHash=${txHash}`;
-      console.log(`[CCTP] Fetching message from Circle API (attempt ${attempt + 1}/${maxAttempts}):`, fullUrl);
       
       const response = await fetch(fullUrl);
       
@@ -707,6 +785,8 @@ export async function mintUSDC(
 
   return mintHash;
 }
+
+
 
 
 

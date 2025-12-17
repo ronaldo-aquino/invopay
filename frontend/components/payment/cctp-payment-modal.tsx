@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSwitchChain, useAccount } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import {
@@ -12,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { useCCTPPayment, type CCTPPaymentStep } from "@/hooks/useCCTPPayment";
 import { CCTP_SUPPORTED_CHAINS } from "@/lib/cctp-constants";
+import { ARC_TESTNET_CHAIN_ID } from "@/lib/constants";
 import type { Invoice } from "@backend/lib/supabase";
 import { CheckCircle2, Circle, Loader2, XCircle } from "lucide-react";
 
@@ -29,6 +31,7 @@ const stepConfig: Record<CCTPPaymentStep, { label: string; description: (sourceC
   burning: { label: "Burning USDC", description: (sourceChainName) => sourceChainName ? `Burning USDC on ${sourceChainName}...` : "Burning USDC on source chain..." },
   waiting_attestation: { label: "Waiting for Attestation", description: () => "Waiting for Circle to verify the burn..." },
   minting: { label: "Minting USDC", description: () => "Minting USDC on Arc Testnet..." },
+  approving_arc: { label: "Approving USDC on Arc", description: () => "Approving USDC for payment on Arc Testnet..." },
   paying: { label: "Completing Payment", description: () => "Finalizing invoice payment..." },
   success: { label: "Payment Successful", description: () => "Your payment has been completed!" },
   error: { label: "Payment Failed", description: () => "An error occurred during payment" },
@@ -42,6 +45,8 @@ export function CCTPPaymentModal({
   onPaymentSuccess,
 }: CCTPPaymentModalProps) {
   const [selectedChainId, setSelectedChainId] = useState<number | "">("");
+  const { chain } = useAccount();
+  const { switchChainAsync } = useSwitchChain();
 
   const {
     step,
@@ -70,10 +75,18 @@ export function CCTPPaymentModal({
     initiateCCTPPayment(chainId);
   };
 
-  const handleClose = (open: boolean) => {
-    if (!open && step !== "paying" && step !== "minting" && step !== "burning") {
+  const handleClose = async (open: boolean) => {
+    if (!open && step !== "paying" && step !== "minting" && step !== "burning" && step !== "approving_arc") {
       reset();
       setSelectedChainId("");
+      
+      if (chain?.id !== ARC_TESTNET_CHAIN_ID && switchChainAsync) {
+        try {
+          await switchChainAsync({ chainId: ARC_TESTNET_CHAIN_ID });
+        } catch (error) {
+          // Failed to switch to Arc Testnet
+        }
+      }
     }
     onOpenChange(open);
   };
@@ -91,6 +104,7 @@ export function CCTPPaymentModal({
       "burning",
       "waiting_attestation",
       "minting",
+      "approving_arc",
       "paying",
       "success",
     ];
@@ -108,16 +122,20 @@ export function CCTPPaymentModal({
     "burning",
     "waiting_attestation",
     "minting",
+    "approving_arc",
     "paying",
   ];
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent 
+        className="max-w-2xl max-h-[90vh] overflow-y-auto"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">Pay with USDC from Another Chain</DialogTitle>
           <DialogDescription>
-            Use Circle's CCTP to transfer USDC from another network to pay this invoice.
+            Transfer USDC from another network to pay this invoice. Your USDC will be securely bridged to Arc Network.
           </DialogDescription>
         </DialogHeader>
 
@@ -147,8 +165,20 @@ export function CCTPPaymentModal({
                   ))}
                 </Select>
                 <p className="text-xs text-muted-foreground mt-2">
-                  All available CCTP-supported networks are listed above. USDC will be transferred to Arc Testnet.
+                  Select a network where you have USDC. Your USDC will be transferred to Arc Network to complete the payment.
                 </p>
+                <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                  <p className="text-xs font-semibold text-yellow-800 dark:text-yellow-200 mb-1">
+                    ⚠️ Important: Gas Requirements
+                  </p>
+                  <p className="text-xs text-yellow-700 dark:text-yellow-300 leading-relaxed">
+                    <strong>Source Chain:</strong> You need native tokens (ETH) on the source network to pay for the burn transaction gas fees.
+                    <br />
+                    <strong>Arc Testnet:</strong> You need USDC on Arc Testnet to pay for the mint and payment transaction gas fees.
+                    <br />
+                    Make sure you have sufficient balances on both networks before starting the transfer.
+                  </p>
+                </div>
               </div>
             </div>
           )}
@@ -295,3 +325,5 @@ export function CCTPPaymentModal({
     </Dialog>
   );
 }
+
+
