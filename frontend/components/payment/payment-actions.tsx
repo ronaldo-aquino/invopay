@@ -94,6 +94,7 @@ export function PaymentActions({
       {invoice.currency === "USDC" && onOpenCCTPModal && (
         <Button
           onClick={onOpenCCTPModal}
+          disabled={needsApproval || !onChainInvoice}
           variant="outline"
           className="w-full h-12 text-base font-semibold border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/20"
           size="lg"

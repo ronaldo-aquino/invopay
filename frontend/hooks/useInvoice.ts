@@ -14,14 +14,11 @@ export function useInvoice(invoiceId: string | undefined) {
     try {
       const data = await getInvoiceById(invoiceId);
       
-      // Only update if status actually changed to avoid unnecessary re-renders
       if (data?.status !== lastStatusRef.current) {
-        console.log(`[useInvoice] Status mudou: ${lastStatusRef.current} -> ${data?.status}`);
         lastStatusRef.current = data?.status || null;
         setInvoice(data);
       }
     } catch (error) {
-      console.error(`[useInvoice] Erro ao buscar invoice:`, error);
     } finally {
       setLoading(false);
     }
@@ -42,25 +39,19 @@ export function useInvoice(invoiceId: string | undefined) {
       pollingIntervalRef.current = null;
     }
 
-    // Only start polling if invoice is pending
     if (invoice && invoice.status === "pending") {
-      console.log(`[useInvoice] Iniciando polling para invoice pendente...`);
       pollingIntervalRef.current = setInterval(() => {
         fetchInvoice();
       }, 2000);
-    } else if (invoice && invoice.status === "paid") {
-      console.log(`[useInvoice] Invoice está pago, polling não será iniciado.`);
     }
 
-    // Cleanup
     return () => {
       if (pollingIntervalRef.current) {
-        console.log(`[useInvoice] Parando polling...`);
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
     };
-  }, [invoice?.status, fetchInvoice]); // Only depend on status, not the whole invoice object
+  }, [invoice?.status, fetchInvoice]);
 
   return {
     invoice,

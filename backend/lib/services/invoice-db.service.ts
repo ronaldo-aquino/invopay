@@ -56,7 +56,6 @@ export async function getInvoiceById(invoiceId: string) {
     .single();
 
   if (error) throw error;
-  console.log(`[getInvoiceById] Invoice ${invoiceId} status: ${data?.status}`);
   return data;
 }
 

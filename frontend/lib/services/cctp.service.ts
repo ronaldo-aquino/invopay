@@ -200,7 +200,6 @@ export async function burnUSDC(
       ? `https://iris-api-sandbox.circle.com/v2/burn/USDC/fees/${sourceConfig.domain}/${destConfig.domain}`
       : `https://iris-api.circle.com/v2/burn/USDC/fees/${sourceConfig.domain}/${destConfig.domain}`;
     
-    console.log(`[CCTP] Fetching fee from: ${feeApiUrl}`);
     const feeResponse = await fetch(feeApiUrl);
     if (feeResponse.ok) {
       const feeData = await feeResponse.json();
@@ -216,7 +215,6 @@ export async function burnUSDC(
         // Or use the first one if only one option
         const standardTransfer = feeData.find((f: any) => f.finalityThreshold >= 1000) || feeData[0];
         minimumFeeBps = BigInt(standardTransfer.minimumFee || 1);
-        console.log(`[CCTP] Using fee from standard transfer: ${minimumFeeBps} bps (finalityThreshold: ${standardTransfer.finalityThreshold})`);
       } else if (feeData.minimumFee !== undefined) {
         // If it's an object with minimumFee directly
         minimumFeeBps = BigInt(feeData.minimumFee || 1);
@@ -225,10 +223,8 @@ export async function burnUSDC(
       // Calculate fee: (amount * feeBps) / 10000
       // Add 50% buffer to ensure we have enough
       maxFee = (amountWei * minimumFeeBps * BigInt(150)) / BigInt(10000);
-      console.log(`[CCTP] Calculated maxFee: ${maxFee} (from ${minimumFeeBps} bps, amount: ${amountWei})`);
     } else {
       const errorText = await feeResponse.text().catch(() => '');
-      console.log(`[CCTP] Fee API failed (${feeResponse.status}): ${errorText}`);
       // If fee API fails, use a conservative estimate: 0.01% (1 bps) with 50% buffer
       // For 2 USDC (2 * 1e6): (2000000 * 1 * 150) / 10000 = 30000 (0.03 USDC)
       maxFee = (amountWei * BigInt(150)) / BigInt(10000);
@@ -237,7 +233,6 @@ export async function burnUSDC(
   } catch (error) {
     // If fee API fails, use a conservative estimate: 0.01% (1 bps) with 50% buffer
     maxFee = (amountWei * BigInt(150)) / BigInt(10000);
-    console.log(`[CCTP] Error fetching fee, using default estimate: ${maxFee}`, error);
   }
   
   // Ensure minimum fee is reasonable
@@ -245,7 +240,6 @@ export async function burnUSDC(
   const minFee = BigInt(100); // 0.0001 USDC minimum
   if (maxFee < minFee) {
     maxFee = minFee;
-    console.log(`[CCTP] maxFee was too small, setting to minimum: ${maxFee}`);
   }
   
   const minFinalityThresholdParam = 0;
@@ -368,9 +362,6 @@ export async function burnUSDC(
   }
 
   if (!burnEvent) {
-    console.error("Receipt logs:", receipt.logs);
-    console.error("TokenMessenger address:", tokenMessengerAddress);
-    console.error("Looking for event in transaction:", burnHash);
     throw new Error(`Burn event not found in transaction ${burnHash}. Transaction was successful but event could not be decoded. Please check the transaction on ${sourceConfig.blockExplorer || 'block explorer'}.`);
   }
 
@@ -437,7 +428,6 @@ async function getMessageFromCircleAPI(
           // If we can't parse the error, continue with empty errorData
         }
         
-        console.log(`[CCTP] API error (${response.status}):`, errorText || errorData);
         
         if (response.status === 404) {
           // 404 means the message is not found - could be not indexed yet or invalid transaction
@@ -468,7 +458,6 @@ async function getMessageFromCircleAPI(
       }
       
       const data = await response.json();
-      console.log(`[CCTP] API response:`, data);
       
       if (data.messages && data.messages.length > 0) {
         const messageData = data.messages[0];
@@ -477,7 +466,6 @@ async function getMessageFromCircleAPI(
         // Check message status - if it's still pending, wait
         const messageStatus = messageData.status;
         if (messageStatus === 'pending_confirmations' || messageStatus === 'pending') {
-          console.log(`[CCTP] Message status is ${messageStatus}, waiting for confirmations...`);
           // For pending_confirmations, wait longer but don't fail immediately
           // Circle needs time to process - this is normal
           if (attempt < maxAttempts - 1) {
@@ -519,17 +507,14 @@ async function getMessageFromCircleAPI(
               rawAttestation.startsWith('0x') &&
               rawAttestation.length > 2) {
             attestation = rawAttestation;
-            console.log(`[CCTP] Successfully parsed message with valid attestation`);
           } else {
             console.log(`[CCTP] Message found but attestation is not ready yet (${rawAttestation}), will need to fetch separately`);
           }
           
           return { message, messageHash, nonce, attestation };
         } else {
-          console.warn(`[CCTP] Message data missing required fields:`, messageData);
         }
       } else {
-        console.warn(`[CCTP] No messages found in API response:`, data);
       }
       
       // If we get here, the response was OK but no messages found
@@ -636,19 +621,14 @@ export async function mintUSDC(
     }),
   });
 
-  // Validate attestation format
   if (!attestation || !attestation.startsWith('0x') || attestation.length < 10) {
-    throw new Error(`Formato de attestation inválido: ${attestation?.substring(0, 50)}...`);
+    throw new Error(`Invalid attestation format: ${attestation?.substring(0, 50)}...`);
   }
 
-  // Validate message format
   if (!message || !message.startsWith('0x') || message.length < 10) {
-    throw new Error(`Formato de mensagem inválido: ${message?.substring(0, 50)}...`);
+    throw new Error(`Invalid message format: ${message?.substring(0, 50)}...`);
   }
 
-  console.log(`[CCTP] Tentando fazer mint na chain ${destinationChainId}`);
-  console.log(`[CCTP] MessageTransmitter: ${destConfig.messageTransmitter}`);
-  console.log(`[CCTP] Message length: ${message.length}, Attestation length: ${attestation.length}`);
   
   // CRITICAL: Verify the walletClient is on the correct chain BEFORE attempting mint
   // This prevents the chain mismatch error where wallet is on Arc but transaction expects Sepolia
@@ -662,12 +642,10 @@ export async function mintUSDC(
     }
   } catch (chainCheckError: any) {
     // If getChainId fails, it might be a different error - check the message
-    if (chainCheckError.message.includes("ERRO CRÍTICO")) {
+    if (chainCheckError.message.includes("CRITICAL ERROR")) {
       throw chainCheckError;
     }
     // If it's a different error, log it but continue - the writeContract will fail with a clearer error
-    console.warn(`[CCTP] Não foi possível verificar chain do walletClient:`, chainCheckError);
-    console.log(`[CCTP] Continuando com mint - se a chain estiver errada, o erro será mais claro na transação`);
   }
   
   // IMPORTANT: Don't simulate - just try the transaction directly
@@ -685,7 +663,6 @@ export async function mintUSDC(
       functionName: "receiveMessage",
       args: [message, attestation as `0x${string}`],
     });
-    console.log(`[CCTP] Transação de mint enviada: ${mintHash}`);
   } catch (error: any) {
     const errorMsg = error?.message || error?.shortMessage || error?.cause?.message || "Unknown error";
     console.error(`[CCTP] Falha ao enviar transação de mint:`, error);
@@ -701,7 +678,7 @@ export async function mintUSDC(
       throw new Error(`ERRO DE CHAIN: Sua carteira precisa estar na Arc Testnet (chain ID ${destinationChainId}) para fazer o mint. O erro indica que há uma incompatibilidade de chain. Por favor: 1) Troque MANUALMENTE sua carteira para Arc Testnet, 2) Aguarde a confirmação da troca, 3) Clique em "Complete Mint & Pay" novamente.`);
     }
     
-    throw new Error(`Falha ao enviar transação de mint: ${errorMsg}. Verifique se você está na Arc Testnet (chain ID ${destinationChainId}) e tem gas suficiente.`);
+    throw new Error(`Failed to send mint transaction: ${errorMsg}. Please verify you are on Arc Testnet (chain ID ${destinationChainId}) and have sufficient gas.`);
   }
 
   let receipt;
@@ -712,7 +689,6 @@ export async function mintUSDC(
     });
   } catch (error: any) {
     const errorMsg = error?.message || error?.shortMessage || "Unknown error";
-    console.error(`[CCTP] Error waiting for mint receipt:`, error);
     throw new Error(`Mint transaction was sent but confirmation failed: ${errorMsg}. Please check the transaction on the block explorer: ${mintHash}`);
   }
 
@@ -731,7 +707,6 @@ export async function mintUSDC(
         account: walletClient.account,
       });
       
-      console.log(`[CCTP] Call result:`, callResult);
     } catch (callError: any) {
       console.error(`[CCTP] Erro ao simular call:`, callError);
       const errorMsg = callError?.message || callError?.shortMessage || "";
@@ -751,9 +726,6 @@ export async function mintUSDC(
     }
     
     // Log receipt for debugging
-    console.error(`[CCTP] Mint revertido. Receipt:`, receipt);
-    console.error(`[CCTP] Message: ${message.substring(0, 50)}...`);
-    console.error(`[CCTP] Attestation: ${attestation.substring(0, 50)}...`);
     
     throw new Error(`Mint foi revertido. ${revertReason} Transação: ${mintHash}. Verifique no block explorer: ${destConfig.blockExplorer}/tx/${mintHash}`);
   }
@@ -761,4 +733,6 @@ export async function mintUSDC(
   console.log(`[CCTP] Mint successful: ${mintHash}`);
   return mintHash;
 }
+
+
 

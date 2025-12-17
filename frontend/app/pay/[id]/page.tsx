@@ -122,25 +122,25 @@ export default function PaymentPage() {
                   <div className="space-y-4">
                     <div>
                       <h4 className="text-sm font-semibold mb-2 text-muted-foreground">Pay on Arc Testnet</h4>
-                      <PaymentActions
-                        invoice={invoice}
-                        isConnected={isConnected}
-                        onChainInvoice={onChainInvoice}
-                        needsApproval={needsApproval}
-                        isApproving={isApproving}
-                        isApprovalConfirming={isApprovalConfirming}
-                        isPaying={isPaying}
-                        isPaymentConfirming={isPaymentConfirming}
-                        invoiceIdBytes32={invoiceIdBytes32}
-                        transferHash={transferHash}
-                        isPayError={isPayError}
-                        payError={payError}
-                        isPaymentReceiptError={isPaymentReceiptError}
-                        paymentReceiptError={paymentReceiptError}
-                        onApprove={handleApprove}
-                        onPay={handlePayInvoice}
+                  <PaymentActions
+                    invoice={invoice}
+                    isConnected={isConnected}
+                    onChainInvoice={onChainInvoice}
+                    needsApproval={needsApproval}
+                    isApproving={isApproving}
+                    isApprovalConfirming={isApprovalConfirming}
+                    isPaying={isPaying}
+                    isPaymentConfirming={isPaymentConfirming}
+                    invoiceIdBytes32={invoiceIdBytes32}
+                    transferHash={transferHash}
+                    isPayError={isPayError}
+                    payError={payError}
+                    isPaymentReceiptError={isPaymentReceiptError}
+                    paymentReceiptError={paymentReceiptError}
+                    onApprove={handleApprove}
+                    onPay={handlePayInvoice}
                         onOpenCCTPModal={() => setCctpModalOpen(true)}
-                      />
+                  />
                     </div>
                   </div>
                 </div>

@@ -49,7 +49,7 @@ export function useTokenAllowance(
   useEffect(() => {
     if (approvalReceipt && approvalReceipt.status === "success") {
       setTimeout(() => {
-        refetchAllowance();
+      refetchAllowance();
       }, 1000);
     }
   }, [approvalReceipt, refetchAllowance]);
@@ -62,7 +62,7 @@ export function useTokenAllowance(
     ? true 
     : feeAmountInWei
       ? needsApproval(normalizedAllowance, feeAmountInWei)
-      : true;
+    : true;
 
   const handleApprove = () => {
     if (!tokenAddress || !feeAmountInWei || !INVOPAY_CONTRACT_ADDRESS) return;

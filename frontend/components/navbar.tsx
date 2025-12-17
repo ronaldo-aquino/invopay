@@ -38,9 +38,9 @@ export function Navbar() {
           </Link>
           <div className="flex items-center gap-4">
             {isConnected && (
-              <Link href="/dashboard">
-                <Button variant="ghost">Dashboard</Button>
-              </Link>
+            <Link href="/dashboard">
+              <Button variant="ghost">Dashboard</Button>
+            </Link>
             )}
             {isOwner && (
               <Link href="/owner-dashboard">
