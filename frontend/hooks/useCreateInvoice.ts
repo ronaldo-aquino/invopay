@@ -21,6 +21,7 @@ export function useCreateInvoice() {
     data: createTxHash,
     error: writeError,
     isError: isWriteError,
+    isPending: isPendingWrite,
     reset: resetWrite,
   } = useWriteContract();
 
@@ -312,6 +313,7 @@ export function useCreateInvoice() {
     createInvoice,
     isCreatingOnChain,
     isWaitingForTx,
+    isPendingWrite,
     error,
     dbSaveError,
     retryDatabaseSave,

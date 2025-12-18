@@ -57,6 +57,7 @@ export default function CreateInvoicePage() {
     createInvoice,
     isCreatingOnChain,
     isWaitingForTx,
+    isPendingWrite,
     error,
     dbSaveError,
     retryDatabaseSave,
@@ -144,12 +145,12 @@ export default function CreateInvoicePage() {
                   type="submit"
                   className="w-full h-12 text-base font-semibold"
                   size="lg"
-                  disabled={isSubmitting || isCreatingOnChain || isWaitingForTx || needsApproval}
+                  disabled={isSubmitting || isCreatingOnChain || isWaitingForTx || isPendingWrite || needsApproval}
                 >
-                  {isCreatingOnChain || isWaitingForTx
-                    ? "Waiting for transaction confirmation..."
+                  {isPendingWrite || isCreatingOnChain || isWaitingForTx
+                    ? "Creating invoice..."
                     : isSubmitting
-                      ? "Creating..."
+                      ? "Creating invoice..."
                       : "Create Invoice"}
                 </Button>
 
