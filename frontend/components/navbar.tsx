@@ -25,11 +25,17 @@ export function Navbar() {
   });
 
   useEffect(() => {
+    if (!isConnected || !address) {
+      setIsOwner(false);
+      return;
+    }
     if (contractOwner && address) {
       const ownerAddress = contractOwner as `0x${string}`;
       setIsOwner(ownerAddress.toLowerCase() === address.toLowerCase());
+    } else {
+      setIsOwner(false);
     }
-  }, [contractOwner, address]);
+  }, [contractOwner, address, isConnected]);
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -43,17 +49,22 @@ export function Navbar() {
     <nav className="border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="flex items-center justify-between">
-          <Link href="/dashboard" className="text-2xl font-bold">
+          <Link href="/invoices" className="text-2xl font-bold">
             Invopay
           </Link>
           
           <div className="hidden md:flex items-center gap-4">
             {isConnected && (
-              <Link href="/dashboard">
-                <Button variant="ghost">Dashboard</Button>
-              </Link>
+              <>
+                <Link href="/invoices">
+                  <Button variant="ghost">Invoices</Button>
+                </Link>
+                <Link href="/dashboard">
+                  <Button variant="ghost">Dashboard</Button>
+                </Link>
+              </>
             )}
-            {isOwner && (
+            {isConnected && isOwner && (
               <Link href="/owner-dashboard">
                 <Button variant="ghost">Owner Dashboard</Button>
               </Link>
@@ -82,13 +93,20 @@ export function Navbar() {
         {isMobileMenuOpen && (
           <div className="md:hidden mt-4 pb-4 border-t border-border/60 pt-4 space-y-3">
             {isConnected && (
-              <Link href="/dashboard" onClick={closeMobileMenu}>
-                <Button variant="ghost" className="w-full justify-start">
-                  Dashboard
-                </Button>
-              </Link>
+              <>
+                <Link href="/invoices" onClick={closeMobileMenu}>
+                  <Button variant="ghost" className="w-full justify-start">
+                    Invoices
+                  </Button>
+                </Link>
+                <Link href="/dashboard" onClick={closeMobileMenu}>
+                  <Button variant="ghost" className="w-full justify-start">
+                    Dashboard
+                  </Button>
+                </Link>
+              </>
             )}
-            {isOwner && (
+            {isConnected && isOwner && (
               <Link href="/owner-dashboard" onClick={closeMobileMenu}>
                 <Button variant="ghost" className="w-full justify-start">
                   Owner Dashboard

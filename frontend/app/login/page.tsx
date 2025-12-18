@@ -15,7 +15,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isConnected && address) {
-      router.replace("/dashboard");
+      router.replace("/invoices");
     } else {
       setIsChecking(false);
     }
@@ -26,7 +26,7 @@ export default function LoginPage() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-muted/20">
         <div className="text-center space-y-4">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          <p className="text-muted-foreground">Redirecting to dashboard...</p>
+          <p className="text-muted-foreground">Redirecting to invoices...</p>
         </div>
       </div>
     );

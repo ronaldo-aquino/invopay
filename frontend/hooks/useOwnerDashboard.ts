@@ -163,7 +163,7 @@ export function useOwnerDashboard() {
       setIsOwner(isOwnerCheck);
 
       if (!isOwnerCheck) {
-        router.push("/dashboard");
+        router.push("/invoices");
       }
     }
   }, [contractOwner, address, isConnected, router]);
