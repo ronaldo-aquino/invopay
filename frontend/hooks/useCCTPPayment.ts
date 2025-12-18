@@ -397,7 +397,7 @@ export function useCCTPPayment(
       });
 
       const usdcBalance = await arcPublicClient.getBalance({ address });
-      const minRequiredBalance = BigInt("1000000000000000"); // 0.001 USDC minimum (18 decimals for native USDC)
+      const minRequiredBalance = BigInt("1000000000000000");
       
       if (usdcBalance < minRequiredBalance) {
         const balanceFormatted = formatEther(usdcBalance);
@@ -466,7 +466,7 @@ export function useCCTPPayment(
       });
 
       const nativeBalance = await sourcePublicClient.getBalance({ address });
-      const minRequiredBalance = BigInt("1000000000000000"); // 0.001 ETH minimum for burn gas
+      const minRequiredBalance = BigInt("1000000000000000");
       
       if (nativeBalance < minRequiredBalance) {
         const balanceFormatted = formatEther(nativeBalance);

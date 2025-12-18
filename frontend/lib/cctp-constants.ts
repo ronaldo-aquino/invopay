@@ -56,7 +56,7 @@ export const CCTP_SUPPORTED_CHAINS: Record<number, CCTPChainConfig> = {
     name: "Arc Testnet",
     rpcUrl: "https://rpc.testnet.arc.network",
     tokenMessenger: "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
-    messageTransmitter: "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275", // MessageTransmitterV2 correto para Arc Testnet
+    messageTransmitter: "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
     usdcAddress: "0x3600000000000000000000000000000000000000",
     blockExplorer: "https://testnet.arcscan.app",
   },
@@ -119,6 +119,7 @@ export const CCTP_ABI = {
     },
   ],
 } as const;
+
 
 
 

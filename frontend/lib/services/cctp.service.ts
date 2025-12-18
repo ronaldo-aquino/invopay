@@ -188,13 +188,10 @@ export async function burnUSDC(
     throw new Error("Unsupported chain");
   }
 
-  // Create chain object based on sourceChainId
   let sourceChain;
   if (sourceChainId === 11155111) {
-    // Sepolia
     sourceChain = sepolia;
   } else {
-    // For other chains, use defineChain
     sourceChain = defineChain({
       id: sourceChainId,
       name: sourceConfig.name,
@@ -248,7 +245,6 @@ export async function burnUSDC(
   });
 
   if (allowance < amountWei) {
-    // Approve maximum amount to avoid multiple approvals
     const maxApproval = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
     
     const approveHash = await walletClient.writeContract({
@@ -268,13 +264,10 @@ export async function burnUSDC(
   const mintRecipient = pad(recipient, { size: 32, dir: "right" }) as `0x${string}`;
   const destinationCallerParam = "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`;
   
-  // Get minimum fee from Circle API
-  // CCTP v2 requires a fee - setting maxFee to 0 causes "insufficient_fee" error
   let maxFee = 0n;
-  const isTestnet = sourceChainId === 11155111 || destinationChainId === 5042002; // Sepolia or Arc Testnet
+  const isTestnet = sourceChainId === 11155111 || destinationChainId === 5042002;
   
   try {
-    // Correct API format: /v2/burn/USDC/fees/:sourceDomainId/:destDomainId
     const feeApiUrl = isTestnet 
       ? `https://iris-api-sandbox.circle.com/v2/burn/USDC/fees/${sourceConfig.domain}/${destConfig.domain}`
       : `https://iris-api.circle.com/v2/burn/USDC/fees/${sourceConfig.domain}/${destConfig.domain}`;
@@ -283,38 +276,25 @@ export async function burnUSDC(
     if (feeResponse.ok) {
       const feeData = await feeResponse.json();
       
-      // According to Circle docs, API returns an array with fee options
-      // Each option has: finalityThreshold, minimumFee (in bps)
-      // Use the minimum fee from the standard transfer (higher finalityThreshold)
-      let minimumFeeBps = 1n; // Default to 1 bps
+      let minimumFeeBps = 1n;
       
       if (Array.isArray(feeData) && feeData.length > 0) {
-        // Find standard transfer (usually the one with higher finalityThreshold)
-        // Or use the first one if only one option
         const standardTransfer = feeData.find((f: any) => f.finalityThreshold >= 1000) || feeData[0];
         minimumFeeBps = BigInt(standardTransfer.minimumFee || 1);
       } else if (feeData.minimumFee !== undefined) {
-        // If it's an object with minimumFee directly
         minimumFeeBps = BigInt(feeData.minimumFee || 1);
       }
       
-      // Calculate fee: (amount * feeBps) / 10000
-      // Add 50% buffer to ensure we have enough
       maxFee = (amountWei * minimumFeeBps * BigInt(150)) / BigInt(10000);
     } else {
       const errorText = await feeResponse.text().catch(() => '');
-      // If fee API fails, use a conservative estimate: 0.01% (1 bps) with 50% buffer
-      // For 2 USDC (2 * 1e6): (2000000 * 1 * 150) / 10000 = 30000 (0.03 USDC)
       maxFee = (amountWei * BigInt(150)) / BigInt(10000);
     }
   } catch (error) {
-    // If fee API fails, use a conservative estimate: 0.01% (1 bps) with 50% buffer
     maxFee = (amountWei * BigInt(150)) / BigInt(10000);
   }
   
-  // Ensure minimum fee is reasonable
-  // For USDC (6 decimals), ensure at least 0.0001 USDC (100 with 6 decimals)
-  const minFee = BigInt(100); // 0.0001 USDC minimum
+  const minFee = BigInt(100);
   if (maxFee < minFee) {
     maxFee = minFee;
   }
@@ -459,7 +439,7 @@ export async function burnUSDC(
     messageHash,
     nonce,
     message,
-    attestation, // Include attestation if available from v2 API
+    attestation,
   };
 }
 
@@ -472,13 +452,12 @@ async function getMessageFromCircleAPI(
     ? `https://iris-api-sandbox.circle.com/v2/messages/${sourceDomain}`
     : `https://iris-api.circle.com/v2/messages/${sourceDomain}`;
   
-  const maxAttempts = 20; // Reduced to 20 attempts
-  const initialDelayMs = 2000; // Start with 2 seconds (faster)
-  const maxDelayMs = 8000; // Max 8 seconds between attempts (faster)
+  const maxAttempts = 20;
+  const initialDelayMs = 2000;
+  const maxDelayMs = 8000;
   
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      // Progressive delay: longer waits for later attempts
       const delayMs = Math.min(initialDelayMs + (attempt * 500), maxDelayMs);
       if (attempt > 0) {
         await new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -497,20 +476,14 @@ async function getMessageFromCircleAPI(
             try {
               errorData = JSON.parse(errorText);
             } catch {
-              // Not JSON, use as plain text
             }
           }
         } catch {
-          // If we can't parse the error, continue with empty errorData
         }
         
         
         if (response.status === 404) {
-          // 404 means the message is not found - could be not indexed yet or invalid transaction
-          // For CCTP v2, 404 might mean the transaction hasn't been indexed yet
-          // Circle's API can take several minutes to index transactions
           if (attempt < maxAttempts - 1) {
-            // Wait longer and retry - Circle may need more time to index
             continue;
           } else {
             throw new Error(`Message not found in Circle API after ${maxAttempts} attempts (${Math.round((maxAttempts * delayMs) / 1000 / 60)} minutes of waiting). This usually means: 1) The transaction is still being processed by Circle (can take 5-15 minutes), 2) The burn transaction did not create a valid CCTP message, or 3) There's an issue with Circle's API. Please verify the burn transaction on the block explorer and try the "Complete Mint & Pay" button in 10-15 minutes. Transaction: ${txHash}`);
@@ -518,10 +491,7 @@ async function getMessageFromCircleAPI(
         }
         
         if (response.status === 400) {
-          // 400 usually means the transaction hash is invalid or not found yet
-          // This is common right after a burn - Circle needs time to index it
           if (attempt < maxAttempts - 1) {
-            // Continue to next attempt with longer delay
             continue;
           } else {
             throw new Error(`Transaction not found in Circle API after ${maxAttempts} attempts. The transaction may still be processing. Please wait a few minutes and use the "Complete Mint & Pay" button. Transaction: ${txHash.substring(0, 10)}...`);
