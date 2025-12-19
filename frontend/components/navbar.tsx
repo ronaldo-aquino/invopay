@@ -62,6 +62,9 @@ export function Navbar() {
                 <Link href="/bring-usdc">
                   <Button variant="ghost">Bring USDC</Button>
                 </Link>
+                <Link href="/smart-stable-swap">
+                  <Button variant="ghost">Smart Stable Swap</Button>
+                </Link>
                 <Link href="/dashboard">
                   <Button variant="ghost">Dashboard</Button>
                 </Link>
@@ -105,6 +108,11 @@ export function Navbar() {
                 <Link href="/bring-usdc" onClick={closeMobileMenu}>
                   <Button variant="ghost" className="w-full justify-start">
                     Bring USDC
+                  </Button>
+                </Link>
+                <Link href="/smart-stable-swap" onClick={closeMobileMenu}>
+                  <Button variant="ghost" className="w-full justify-start">
+                    Smart Stable Swap
                   </Button>
                 </Link>
                 <Link href="/dashboard" onClick={closeMobileMenu}>
