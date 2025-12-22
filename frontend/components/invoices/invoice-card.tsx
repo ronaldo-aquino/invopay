@@ -152,7 +152,7 @@ export function InvoiceCard({
               {shouldShowCreationGas && (
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900">
                   <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">
-                    Gas (Creation):
+                    Gas
                   </span>
                   <span className="text-xs font-medium text-purple-900 dark:text-purple-100">
                     {(() => {
@@ -167,7 +167,7 @@ export function InvoiceCard({
               {shouldShowPaymentGas && (
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900">
                   <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">
-                    Gas (Payment):
+                    Gas
                   </span>
                   <span className="text-xs font-medium text-purple-900 dark:text-purple-100">
                     {(() => {
